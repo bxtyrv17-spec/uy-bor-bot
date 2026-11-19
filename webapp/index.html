@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Uy Bor</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --bg: #f0f2f5;
+      --card: #ffffff;
+      --primary: #2563eb;
+      --primary-light: #eff6ff;
+      --text: #1e293b;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --green: #16a34a;
+      --orange: #ea580c;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* Header */
+    .header {
+      background: var(--card);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo { font-size: 20px; font-weight: 700; color: var(--primary); }
+    .logo span { color: var(--text); }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+    }
+    .tab {
+      flex: 1;
+      padding: 12px 8px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      white-space: nowrap;
+      transition: all .2s;
+    }
+    .tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+
+    /* Filter bar */
+    .filter-bar {
+      padding: 10px 16px;
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+    }
+    .filter-chip {
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      font-size: 13px;
+      cursor: pointer;
+      white-space: nowrap;
+      background: white;
+      color: var(--muted);
+    }
+    .filter-chip.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+    /* Listings */
+    .listings { padding: 12px 16px; display: flex; flex-direction: column; gap: 12px; }
+
+    .card {
+      background: var(--card);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    }
+    .card-photos {
+      position: relative;
+      height: 200px;
+      background: #e2e8f0;
+      overflow: hidden;
+    }
+    .card-photos img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+    }
+    .card-photos .no-photo {
+      display: flex; align-items: center; justify-content: center;
+      height: 100%; font-size: 48px;
+    }
+    .card-badge {
+      position: absolute; top: 10px; left: 10px;
+      background: var(--primary); color: white;
+      padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;
+    }
+    .card-badge.rent { background: var(--green); }
+    .card-badge.daily { background: var(--orange); }
+
+    .card-body { padding: 14px; }
+    .card-price {
+      font-size: 20px; font-weight: 700; color: var(--primary); margin-bottom: 6px;
+    }
+    .card-price .currency { font-size: 14px; font-weight: 500; }
+    .card-price .negotiable { font-size: 12px; color: var(--green); font-weight: 500; }
+    .card-location { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+    .card-details {
+      display: flex; gap: 12px; flex-wrap: wrap;
+    }
+    .detail-item { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 4px; }
+    .card-desc { font-size: 13px; color: var(--muted); margin-top: 8px; line-height: 1.4; }
+    .card-actions { display: flex; gap: 8px; margin-top: 12px; }
+    .btn {
+      flex: 1; padding: 10px; border-radius: 10px; border: none;
+      font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity .2s;
+    }
+    .btn:active { opacity: 0.8; }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-outline { background: var(--primary-light); color: var(--primary); }
+
+    /* Add listing form */
+    .form-page { padding: 16px; display: none; flex-direction: column; gap: 14px; }
+    .form-page.visible { display: flex; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-label { font-size: 13px; font-weight: 600; color: var(--muted); }
+    .form-input {
+      padding: 12px 14px; border-radius: 10px; border: 1px solid var(--border);
+      font-size: 15px; outline: none; background: var(--card);
+      transition: border-color .2s;
+    }
+    .form-input:focus { border-color: var(--primary); }
+    .form-select {
+      padding: 12px 14px; border-radius: 10px; border: 1px solid var(--border);
+      font-size: 15px; background: var(--card); outline: none;
+    }
+    .radio-group { display: flex; gap: 8px; flex-wrap: wrap; }
+    .radio-btn {
+      padding: 8px 16px; border-radius: 20px; border: 1px solid var(--border);
+      font-size: 13px; cursor: pointer; transition: all .2s;
+    }
+    .radio-btn.selected { background: var(--primary); color: white; border-color: var(--primary); }
+
+    /* Loading */
+    .loading { text-align: center; padding: 40px; color: var(--muted); }
+    .spinner {
+      width: 32px; height: 32px; border: 3px solid var(--border);
+      border-top-color: var(--primary); border-radius: 50%;
+      animation: spin 0.8s linear infinite; margin: 0 auto 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .empty { text-align: center; padding: 60px 20px; color: var(--muted); }
+    .empty-icon { font-size: 48px; margin-bottom: 12px; }
+
+    /* Contact modal */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.5); z-index: 200; align-items: flex-end;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--card); border-radius: 20px 20px 0 0;
+      padding: 24px; width: 100%;
+      animation: slideUp .3s ease;
+    }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; }
+    .contact-phone {
+      font-size: 22px; font-weight: 700; color: var(--primary);
+      text-align: center; padding: 16px; background: var(--primary-light);
+      border-radius: 12px; margin-bottom: 12px; letter-spacing: 1px;
+    }
+    .modal-close {
+      width: 100%; padding: 12px; border-radius: 10px; border: none;
+      background: var(--border); font-size: 15px; font-weight: 600; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">Uy<span>Bor</span></div>
+  <div style="font-size:12px;color:var(--muted)">Maklerсiz</div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('search')">🔍 Qidirish</div>
+  <div class="tab" onclick="switchTab('add')">➕ E'lon</div>
+  <div class="tab" onclick="switchTab('my')">📋 Mening</div>
+</div>
+
+<!-- SEARCH TAB -->
+<div id="tab-search">
+  <div class="filter-bar">
+    <div class="filter-chip active" onclick="setFilter('all', this)">Hammasi</div>
+    <div class="filter-chip" onclick="setFilter('sale', this)">🏷️ Sotish</div>
+    <div class="filter-chip" onclick="setFilter('rent', this)">🔑 Ijara</div>
+    <div class="filter-chip" onclick="setFilter('daily', this)">📅 Kunlik</div>
+  </div>
+  <div id="listings" class="listings">
+    <div class="loading"><div class="spinner"></div>Yuklanmoqda...</div>
+  </div>
+</div>
+
+<!-- ADD TAB -->
+<div id="tab-add" style="display:none">
+  <form class="form-page visible" id="addForm" onsubmit="submitListing(event)">
+    <div class="form-group">
+      <div class="form-label">E'lon turi</div>
+      <div class="radio-group">
+        <div class="radio-btn selected" onclick="selectRadio(this,'ltype','sale')">🏷️ Sotish</div>
+        <div class="radio-btn" onclick="selectRadio(this,'ltype','rent')">🔑 Ijara</div>
+        <div class="radio-btn" onclick="selectRadio(this,'ltype','daily')">📅 Kunlik</div>
+      </div>
+      <input type="hidden" id="ltype" value="sale">
+    </div>
+    <div class="form-group">
+      <div class="form-label">Mulk turi</div>
+      <div class="radio-group">
+        <div class="radio-btn selected" onclick="selectRadio(this,'ptype','apartment')">🏢 Kvartira</div>
+        <div class="radio-btn" onclick="selectRadio(this,'ptype','house')">🏡 Uy</div>
+        <div class="radio-btn" onclick="selectRadio(this,'ptype','room')">🛏 Xona</div>
+      </div>
+      <input type="hidden" id="ptype" value="apartment">
+    </div>
+    <div class="form-group">
+      <div class="form-label">Shahar</div>
+      <select class="form-select" id="city">
+        <option>Toshkent</option><option>Samarqand</option><option>Buxoro</option>
+        <option>Namangan</option><option>Andijon</option><option>Farg'ona</option>
+        <option>Qarshi</option><option>Nukus</option><option>Termiz</option>
+        <option>Jizzax</option><option>Navoiy</option><option>Urganch</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Tuman / Ko'cha</div>
+      <input class="form-input" type="text" id="district" placeholder="Masalan: Yunusobod, 7-mavze" required>
+    </div>
+    <div style="display:flex;gap:10px">
+      <div class="form-group" style="flex:1">
+        <div class="form-label">Xonalar</div>
+        <input class="form-input" type="number" id="rooms" min="1" max="10" placeholder="1" required>
+      </div>
+      <div class="form-group" style="flex:1">
+        <div class="form-label">Maydon (m²)</div>
+        <input class="form-input" type="number" id="area" placeholder="50" required>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px">
+      <div class="form-group" style="flex:1">
+        <div class="form-label">Narx</div>
+        <input class="form-input" type="number" id="price" placeholder="50000" required>
+      </div>
+      <div class="form-group" style="flex:1">
+        <div class="form-label">Valyuta</div>
+        <select class="form-select" id="currency">
+          <option value="USD">💵 USD</option>
+          <option value="UZS">🇺🇿 UZS</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Tavsif (ixtiyoriy)</div>
+      <textarea class="form-input" id="desc" rows="3" placeholder="Uy haqida qo'shimcha ma'lumot..."></textarea>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Telefon raqam</div>
+      <input class="form-input" type="tel" id="phone" placeholder="+998901234567" required>
+    </div>
+    <button class="btn btn-primary" type="submit" style="padding:14px;border-radius:12px;font-size:16px">
+      ✅ E'lon joylash
+    </button>
+  </form>
+</div>
+
+<!-- MY LISTINGS TAB -->
+<div id="tab-my" style="display:none">
+  <div id="myListings" class="listings">
+    <div class="loading"><div class="spinner"></div>Yuklanmoqda...</div>
+  </div>
+</div>
+
+<!-- Contact Modal -->
+<div class="modal-overlay" id="contactModal" onclick="closeModal()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title">📞 Bog'lanish</div>
+    <div class="contact-phone" id="modalPhone"></div>
+    <button class="modal-close" onclick="closeModal()">Yopish</button>
+  </div>
+</div>
+
+<script>
+const tg = window.Telegram?.WebApp;
+if (tg) { tg.expand(); tg.ready(); }
+
+const API = '';  // Railway deploy bo'lgach to'ldiriladi
+let currentFilter = 'all';
+let currentTab = 'search';
+let userId = tg?.initDataUnsafe?.user?.id || 0;
+
+// Tab switching
+function switchTab(tab) {
+  currentTab = tab;
+  ['search','add','my'].forEach(t => {
+    document.getElementById('tab-' + t).style.display = t === tab ? 'block' : 'none';
+    document.querySelectorAll('.tab')[['search','add','my'].indexOf(t)].classList.toggle('active', t === tab);
+  });
+  if (tab === 'search') loadListings();
+  if (tab === 'my') loadMyListings();
+}
+
+// Filter
+function setFilter(type, el) {
+  currentFilter = type;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  loadListings();
+}
+
+// Radio select
+function selectRadio(el, fieldId, value) {
+  el.closest('.radio-group').querySelectorAll('.radio-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById(fieldId).value = value;
+}
+
+// Load listings
+async function loadListings() {
+  const container = document.getElementById('listings');
+  container.innerHTML = '<div class="loading"><div class="spinner"></div>Yuklanmoqda...</div>';
+  try {
+    let url = API + '/api/listings?limit=20';
+    if (currentFilter !== 'all') url += '&listing_type=' + currentFilter;
+    const res = await fetch(url);
+    const listings = await res.json();
+    renderListings(container, listings);
+  } catch(e) {
+    container.innerHTML = '<div class="empty"><div class="empty-icon">😔</div>Yuklanmadi. Internet tekshiring.</div>';
+  }
+}
+
+function renderListings(container, listings) {
+  if (!listings.length) {
+    container.innerHTML = '<div class="empty"><div class="empty-icon">🏘️</div>E\'lon topilmadi</div>';
+    return;
+  }
+  container.innerHTML = listings.map(l => cardHTML(l)).join('');
+}
+
+function cardHTML(l) {
+  const badges = { sale: 'Sotiladi', rent: 'Ijaraga', daily: 'Kunlik' };
+  const badgeClass = l.listing_type;
+  const photo = l.photos?.length
+    ? `<img src="${l.photos[0]}" alt="" loading="lazy" onerror="this.parentElement.innerHTML='<div class=no-photo>🏠</div>'">`
+    : `<div class="no-photo">🏠</div>`;
+  const price = Number(l.price).toLocaleString();
+  const floor = l.floor ? ` | ${l.floor}/${l.total_floors || '?'}-qavat` : '';
+  const neg = l.is_negotiable ? '<span class="negotiable"> • Muzokarali</span>' : '';
+  const desc = l.description_uz ? `<div class="card-desc">${l.description_uz}</div>` : '';
+
+  return `
+  <div class="card">
+    <div class="card-photos">
+      ${photo}
+      <div class="card-badge ${badgeClass}">${badges[l.listing_type] || l.listing_type}</div>
+    </div>
+    <div class="card-body">
+      <div class="card-price">${price} <span class="currency">${l.price_currency}</span>${neg}</div>
+      <div class="card-location">📍 ${l.city}, ${l.district}</div>
+      <div class="card-details">
+        <div class="detail-item">🛏 ${l.rooms} xona</div>
+        <div class="detail-item">📐 ${l.area} m²</div>
+        ${l.floor ? `<div class="detail-item">🏢 ${l.floor}-qavat${floor}</div>` : ''}
+        <div class="detail-item">👁 ${l.views}</div>
+      </div>
+      ${desc}
+      <div class="card-actions">
+        <button class="btn btn-primary" onclick="showContact('${l.contact_phone}')">📞 Bog'lanish</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// My listings
+async function loadMyListings() {
+  if (!userId) {
+    document.getElementById('myListings').innerHTML =
+      '<div class="empty"><div class="empty-icon">🔒</div>Telegram orqali kiring</div>';
+    return;
+  }
+  // TODO: owner_id bo'yicha filtr (keyingi versiyada)
+  document.getElementById('myListings').innerHTML =
+    '<div class="empty"><div class="empty-icon">📋</div>Hozircha bot orqali ko\'rish mumkin</div>';
+}
+
+// Submit listing
+async function submitListing(e) {
+  e.preventDefault();
+  if (!userId) { alert("Telegram orqali kiring"); return; }
+
+  const data = {
+    owner_id: userId,
+    listing_type: document.getElementById('ltype').value,
+    property_type: document.getElementById('ptype').value,
+    city: document.getElementById('city').value,
+    district: document.getElementById('district').value,
+    rooms: parseInt(document.getElementById('rooms').value),
+    area: parseFloat(document.getElementById('area').value),
+    price: parseFloat(document.getElementById('price').value),
+    price_currency: document.getElementById('currency').value,
+    description_uz: document.getElementById('desc').value || null,
+    contact_phone: document.getElementById('phone').value,
+  };
+
+  try {
+    const res = await fetch(API + '/api/listings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (res.ok) {
+      tg?.showAlert('✅ E\'lon joylashtirildi!');
+      document.getElementById('addForm').reset();
+      switchTab('search');
+    } else {
+      tg?.showAlert('Xatolik yuz berdi');
+    }
+  } catch(err) {
+    tg?.showAlert('Internet tekshiring');
+  }
+}
+
+// Contact modal
+function showContact(phone) {
+  document.getElementById('modalPhone').textContent = phone;
+  document.getElementById('contactModal').classList.add('open');
+}
+function closeModal() {
+  document.getElementById('contactModal').classList.remove('open');
+}
+
+// Init
+loadListings();
+</script>
+</body>
+</html>
