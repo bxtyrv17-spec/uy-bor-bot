@@ -6,9 +6,9 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import settings
-from database.models import Listing, ListingStatus, ListingType, PropertyType
+from database.models import Listing, ListingStatus, ListingType, PropertyType, User
 from keyboards.main_kb import (
-    cities_kb, contact_kb, currency_kb,
+    cities_kb, currency_kb,
     listing_type_kb, main_menu_kb, property_type_kb, yes_no_kb,
 )
 from locales.uz import texts as uz
@@ -30,12 +30,20 @@ class AddListing(StatesGroup):
     negotiable = State()
     description = State()
     photos = State()
-    phone = State()
     confirm = State()
 
 
 @router.message(F.text == uz["btn_add_listing"])
 async def start_add_listing(message: Message, state: FSMContext, session: AsyncSession):
+    # Telefon tasdiqlanganmi?
+    user = await session.get(User, message.from_user.id)
+    if not user or not user.phone:
+        await message.answer(
+            "⚠️ E'lon qo'yish uchun avval ro'yxatdan o'ting.\n\n"
+            "Botni qayta ishga tushiring: /start"
+        )
+        return
+
     # Maksimal e'lon tekshiruvi
     count = await session.scalar(
         select(func.count()).where(
@@ -163,42 +171,29 @@ async def enter_description(message: Message, state: FSMContext):
 
 
 @router.message(AddListing.photos, F.photo)
-async def add_photo(message: Message, state: FSMContext):
+async def add_photo(message: Message, state: FSMContext, session: AsyncSession, bot: Bot):
     data = await state.get_data()
     photos = data.get("photos", [])
     photos.append(message.photo[-1].file_id)
     await state.update_data(photos=photos)
 
     if len(photos) >= settings.MAX_PHOTOS:
-        await _ask_phone(message, state)
+        await _save_listing(message, state, session, bot)
     else:
         await message.answer(f"✅ Rasm {len(photos)}/{settings.MAX_PHOTOS} qo'shildi. /done")
 
 
 @router.message(AddListing.photos, F.text == "/done")
-async def photos_done(message: Message, state: FSMContext):
-    await _ask_phone(message, state)
-
-
-async def _ask_phone(message: Message, state: FSMContext):
-    await state.set_state(AddListing.phone)
-    await message.answer(uz["add_phone"], reply_markup=contact_kb())
-
-
-@router.message(AddListing.phone, F.contact)
-async def receive_contact(message: Message, state: FSMContext, session: AsyncSession, bot: Bot):
-    await state.update_data(phone=message.contact.phone_number)
-    await _save_listing(message, state, session, bot)
-
-
-@router.message(AddListing.phone, F.text)
-async def receive_phone_text(message: Message, state: FSMContext, session: AsyncSession, bot: Bot):
-    await state.update_data(phone=message.text)
+async def photos_done(message: Message, state: FSMContext, session: AsyncSession, bot: Bot):
     await _save_listing(message, state, session, bot)
 
 
 async def _save_listing(message: Message, state: FSMContext, session: AsyncSession, bot: Bot = None):
     data = await state.get_data()
+
+    # Telefon raqamini DB dan olish (tasdiqlangan raqam)
+    user = await session.get(User, message.from_user.id)
+    phone = user.phone if user and user.phone else "noma'lum"
 
     listing = Listing(
         owner_id=message.from_user.id,
@@ -215,7 +210,7 @@ async def _save_listing(message: Message, state: FSMContext, session: AsyncSessi
         is_negotiable=data.get("is_negotiable", False),
         description_uz=data.get("description"),
         photos=data.get("photos", []),
-        contact_phone=data["phone"],
+        contact_phone=phone,
     )
     listing.status = ListingStatus.inactive  # Admin tasdiqlagunicha yashirin
     session.add(listing)
@@ -243,7 +238,7 @@ async def _save_listing(message: Message, state: FSMContext, session: AsyncSessi
             f"{type_map.get(data['listing_type'], data['listing_type'])}\n"
             f"📍 {data['city']}, {data['district']}\n"
             f"💰 {data['price']:,} {data.get('currency', 'USD')}\n"
-            f"📞 {data['phone']}"
+            f"📞 {phone} ✅ (Telegram tasdiqlangan)"
         )
         kb = InlineKeyboardMarkup(inline_keyboard=[[
             InlineKeyboardButton(text="✅ Tasdiqlash", callback_data=f"approve_{listing_id}"),
