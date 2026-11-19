@@ -229,25 +229,37 @@ async def _save_listing(message: Message, state: FSMContext, session: AsyncSessi
 
     # Adminlarga xabar yuborish
     if settings.ADMIN_IDS and bot:
-        type_map = {"sale": "Sotish", "rent": "Ijaraga", "daily": "Kunlik"}
         prop_map = {"apartment": "Kvartira", "house": "Uy", "room": "Xona", "commercial": "Tijorat"}
+        type_suffix = {"sale": "sotiladi", "rent": "ijaraga beriladi", "daily": "kunlik ijaraga"}
+        prop_name = prop_map.get(data['property_type'], data['property_type'])
+        ltype = type_suffix.get(data['listing_type'], data['listing_type'])
+        floor_str = f"{data.get('floor', '?')}/{data.get('total_floors', '?')}" if data.get("floor") else "—"
+        price_str = f"{data['price']:,.0f}".replace(",", " ")
+        neg = " (Kelishiladi)" if data.get("is_negotiable") else ""
+
         admin_text = (
-            f"🆕 <b>Yangi e'lon #{listing_id}</b>\n\n"
-            f"👤 Foydalanuvchi: <a href='tg://user?id={message.from_user.id}'>"
-            f"{message.from_user.full_name}</a> (@{message.from_user.username or '-'})\n"
-            f"🏠 {prop_map.get(data['property_type'], data['property_type'])} — "
-            f"{type_map.get(data['listing_type'], data['listing_type'])}\n"
-            f"📍 {data['city']}, {data['district']}\n"
-            f"💰 {data['price']:,} {data.get('currency', 'USD')}\n"
-            f"📞 {phone} ✅ (Telegram tasdiqlangan)"
+            f"⚪️ <b>{prop_name} egasi raqami bilan joylandi</b>\n\n"
+            f"🔘Shahar: #{data['city'].replace(' ', '')}\n"
+            f"🔘Tuman: #{data['district'].replace(' ', '')}\n"
+            f"🔘Xonalar: {data['rooms']}\n"
+            f"🔘Qavat: {floor_str}\n"
+            f"🔘Maydon: {data['area']} m²\n"
+            f"{'🔘' + data.get('description', '') + chr(10) if data.get('description') else ''}"
+            f"\n💸Narx: {price_str} {data.get('currency', 'USD')}{neg}\n"
+            f"\n📞 {phone} ✅\n"
+            f"👤 <a href='tg://user?id={message.from_user.id}'>{message.from_user.full_name}</a>"
         )
         kb = InlineKeyboardMarkup(inline_keyboard=[[
             InlineKeyboardButton(text="✅ Tasdiqlash", callback_data=f"approve_{listing_id}"),
             InlineKeyboardButton(text="❌ Rad etish", callback_data=f"reject_{listing_id}"),
         ]])
+        photos = data.get("photos", [])
         for admin_id in settings.ADMIN_IDS:
             try:
-                await bot.send_message(admin_id, admin_text, reply_markup=kb, parse_mode="HTML")
+                if photos:
+                    await bot.send_photo(admin_id, photos[0], caption=admin_text, reply_markup=kb, parse_mode="HTML")
+                else:
+                    await bot.send_message(admin_id, admin_text, reply_markup=kb, parse_mode="HTML")
             except Exception:
                 pass
 
