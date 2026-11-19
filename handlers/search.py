@@ -6,7 +6,7 @@ from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models import Listing, ListingStatus, ListingType, PropertyType, User
-from keyboards.main_kb import cities_kb, listing_nav_kb, listing_type_kb, main_menu_kb
+from keyboards.main_kb import cities_kb, listing_nav_kb, listing_type_kb
 from locales.uz import texts as uz
 
 router = Router()
@@ -129,7 +129,7 @@ async def search_price_max(message: Message, state: FSMContext, session: AsyncSe
 
     if not listings:
         await state.clear()
-        await message.answer(uz["no_results"], reply_markup=main_menu_kb())
+        await message.answer(uz["no_results"])
         return
 
     await state.update_data(result_ids=[l.id for l in listings], page=0)
@@ -244,5 +244,5 @@ async def show_contact(callback: CallbackQuery, session: AsyncSession):
 @router.callback_query(SearchState.viewing, F.data == "back_to_search")
 async def back_to_search(callback: CallbackQuery, state: FSMContext):
     await state.clear()
-    await callback.message.answer(uz["choose_action"], reply_markup=main_menu_kb())
+    await callback.message.answer(uz["choose_action"])
     await callback.answer()

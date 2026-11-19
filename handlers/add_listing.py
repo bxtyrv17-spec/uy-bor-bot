@@ -9,8 +9,9 @@ from config import settings
 from database.models import Listing, ListingStatus, ListingType, PropertyType, User
 from keyboards.main_kb import (
     cities_kb, currency_kb,
-    listing_type_kb, main_menu_kb, property_type_kb, yes_no_kb,
+    listing_type_kb, property_type_kb, yes_no_kb,
 )
+from aiogram.types import ReplyKeyboardRemove
 from locales.uz import texts as uz
 
 router = Router()
@@ -222,7 +223,7 @@ async def _save_listing(message: Message, state: FSMContext, session: AsyncSessi
         "✅ E'loningiz qabul qilindi!\n\n"
         "⏳ Admin tekshiruvidan o'tgach e'loningiz faollashadi (odatda 1-2 soat ichida).\n\n"
         f"E'lon #{listing_id}",
-        reply_markup=main_menu_kb(),
+        reply_markup=ReplyKeyboardRemove(),
         parse_mode="HTML",
     )
 
@@ -256,4 +257,4 @@ async def _save_listing(message: Message, state: FSMContext, session: AsyncSessi
 async def cancel_add(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     await callback.message.edit_text(uz["cancel"])
-    await callback.message.answer(uz["choose_action"], reply_markup=main_menu_kb())
+    await callback.message.answer(uz["choose_action"])

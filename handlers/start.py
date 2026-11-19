@@ -3,14 +3,15 @@ from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
-    KeyboardButton, Message, ReplyKeyboardMarkup, ReplyKeyboardRemove
+    InlineKeyboardButton, InlineKeyboardMarkup,
+    KeyboardButton, Message, ReplyKeyboardMarkup, ReplyKeyboardRemove,
+    WebAppInfo,
 )
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from config import settings
 from database.models import User
-from keyboards.main_kb import main_menu_kb
-from locales.uz import texts as uz
 
 router = Router()
 
@@ -28,17 +29,28 @@ def phone_request_kb() -> ReplyKeyboardMarkup:
     return builder.as_markup(resize_keyboard=True, one_time_keyboard=True)
 
 
+def webapp_kb() -> InlineKeyboardMarkup:
+    buttons = [[InlineKeyboardButton(
+        text="🏠 Ilovani ochish",
+        web_app=WebAppInfo(url=settings.WEBAPP_URL),
+    )]]
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
 @router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext, session: AsyncSession):
     user = await session.get(User, message.from_user.id)
 
     if user and user.phone:
         # Allaqachon ro'yxatdan o'tgan
-        await message.answer(
-            uz["welcome"],
-            reply_markup=main_menu_kb(),
-            parse_mode="HTML",
+        text = (
+            "🏠 <b>Uy Bor</b> — Maklerсiz uy toping!\n\n"
+            "Quyidagi tugmani bosib ilovani oching:"
         )
+        kb = webapp_kb() if settings.WEBAPP_URL else None
+        await message.answer(text, reply_markup=ReplyKeyboardRemove(), parse_mode="HTML")
+        if kb:
+            await message.answer("👇", reply_markup=kb)
         return
 
     if not user:
@@ -64,7 +76,6 @@ async def cmd_start(message: Message, state: FSMContext, session: AsyncSession):
 
 @router.message(RegisterState.waiting_phone, F.contact)
 async def receive_phone(message: Message, state: FSMContext, session: AsyncSession):
-    # Faqat o'z raqamini ulashishi kerak
     if message.contact.user_id != message.from_user.id:
         await message.answer(
             "❌ Iltimos, faqat <b>o'z raqamingizni</b> ulashing!",
@@ -86,9 +97,12 @@ async def receive_phone(message: Message, state: FSMContext, session: AsyncSessi
     await message.answer(
         f"✅ <b>Ro'yxatdan o'tdingiz!</b>\n\n"
         f"📱 Raqamingiz: <code>{phone}</code>\n\n"
-        "Endi e'lon qo'yganingizda bu raqam avtomatik ishlatiladi.\n"
-        "Hech kim boshqa raqam yoza olmaydi — bu maklerlardan himoya! 🛡",
+        "Endi e'lon qo'yganingizda bu raqam avtomatik ishlatiladi. 🛡",
         reply_markup=ReplyKeyboardRemove(),
         parse_mode="HTML",
     )
-    await message.answer(uz["choose_action"], reply_markup=main_menu_kb())
+
+    text = "🏠 Ilovani oching:"
+    kb = webapp_kb() if settings.WEBAPP_URL else None
+    if kb:
+        await message.answer(text, reply_markup=kb)

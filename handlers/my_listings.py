@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models import Listing, ListingStatus
-from keyboards.main_kb import main_menu_kb, my_listing_kb
+from keyboards.main_kb import my_listing_kb
 from locales.uz import texts as uz
 from handlers.search import format_listing
 
@@ -23,7 +23,7 @@ async def show_my_listings(message: Message, session: AsyncSession):
     listings = result.scalars().all()
 
     if not listings:
-        await message.answer(uz["my_listings_empty"], reply_markup=main_menu_kb())
+        await message.answer(uz["my_listings_empty"])
         return
 
     await message.answer(f"📋 Sizning e'lonlaringiz: <b>{len(listings)} ta</b>", parse_mode="HTML")
