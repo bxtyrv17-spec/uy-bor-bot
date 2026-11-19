@@ -1,7 +1,7 @@
-from aiogram import F, Router
+from aiogram import Bot, F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -186,18 +186,18 @@ async def _ask_phone(message: Message, state: FSMContext):
 
 
 @router.message(AddListing.phone, F.contact)
-async def receive_contact(message: Message, state: FSMContext, session: AsyncSession):
+async def receive_contact(message: Message, state: FSMContext, session: AsyncSession, bot: Bot):
     await state.update_data(phone=message.contact.phone_number)
-    await _save_listing(message, state, session)
+    await _save_listing(message, state, session, bot)
 
 
 @router.message(AddListing.phone, F.text)
-async def receive_phone_text(message: Message, state: FSMContext, session: AsyncSession):
+async def receive_phone_text(message: Message, state: FSMContext, session: AsyncSession, bot: Bot):
     await state.update_data(phone=message.text)
-    await _save_listing(message, state, session)
+    await _save_listing(message, state, session, bot)
 
 
-async def _save_listing(message: Message, state: FSMContext, session: AsyncSession):
+async def _save_listing(message: Message, state: FSMContext, session: AsyncSession, bot: Bot = None):
     data = await state.get_data()
 
     listing = Listing(
@@ -217,16 +217,43 @@ async def _save_listing(message: Message, state: FSMContext, session: AsyncSessi
         photos=data.get("photos", []),
         contact_phone=data["phone"],
     )
+    listing.status = ListingStatus.inactive  # Admin tasdiqlagunicha yashirin
     session.add(listing)
     await session.flush()
     listing_id = listing.id
 
     await state.clear()
     await message.answer(
-        uz["listing_saved"].format(listing_id=listing_id),
+        "✅ E'loningiz qabul qilindi!\n\n"
+        "⏳ Admin tekshiruvidan o'tgach e'loningiz faollashadi (odatda 1-2 soat ichida).\n\n"
+        f"E'lon #{listing_id}",
         reply_markup=main_menu_kb(),
         parse_mode="HTML",
     )
+
+    # Adminlarga xabar yuborish
+    if settings.ADMIN_IDS and bot:
+        type_map = {"sale": "Sotish", "rent": "Ijaraga", "daily": "Kunlik"}
+        prop_map = {"apartment": "Kvartira", "house": "Uy", "room": "Xona", "commercial": "Tijorat"}
+        admin_text = (
+            f"🆕 <b>Yangi e'lon #{listing_id}</b>\n\n"
+            f"👤 Foydalanuvchi: <a href='tg://user?id={message.from_user.id}'>"
+            f"{message.from_user.full_name}</a> (@{message.from_user.username or '-'})\n"
+            f"🏠 {prop_map.get(data['property_type'], data['property_type'])} — "
+            f"{type_map.get(data['listing_type'], data['listing_type'])}\n"
+            f"📍 {data['city']}, {data['district']}\n"
+            f"💰 {data['price']:,} {data.get('currency', 'USD')}\n"
+            f"📞 {data['phone']}"
+        )
+        kb = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="✅ Tasdiqlash", callback_data=f"approve_{listing_id}"),
+            InlineKeyboardButton(text="❌ Rad etish", callback_data=f"reject_{listing_id}"),
+        ]])
+        for admin_id in settings.ADMIN_IDS:
+            try:
+                await bot.send_message(admin_id, admin_text, reply_markup=kb, parse_mode="HTML")
+            except Exception:
+                pass
 
 
 # Bekor qilish

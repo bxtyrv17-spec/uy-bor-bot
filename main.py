@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 
+import aiohttp
 import uvicorn
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
@@ -11,7 +12,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
 from config import settings
 from database.db import async_session, create_tables
-from handlers import add_listing, my_listings, search, start
+from handlers import add_listing, admin, my_listings, search, start
 from middlewares.db import DatabaseMiddleware
 
 logging.basicConfig(level=logging.INFO)
@@ -26,6 +27,7 @@ async def run_bot():
     dp = Dispatcher(storage=MemoryStorage())
     dp.update.middleware(DatabaseMiddleware(async_session))
 
+    dp.include_router(admin.router)
     dp.include_router(start.router)
     dp.include_router(add_listing.router)
     dp.include_router(search.router)
@@ -60,20 +62,35 @@ def run_api():
     uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
 
 
+async def keep_alive():
+    """Render free tier uxlamasligi uchun har 14 daqiqada o'z-o'ziga ping."""
+    url = os.getenv("RENDER_EXTERNAL_URL", "")
+    if not url:
+        return
+    await asyncio.sleep(60)
+    while True:
+        try:
+            async with aiohttp.ClientSession() as session:
+                await session.get(f"{url}/api/listings", timeout=aiohttp.ClientTimeout(total=10))
+            logger.info("Keep-alive ping yuborildi")
+        except Exception:
+            pass
+        await asyncio.sleep(14 * 60)
+
+
 async def main():
     await create_tables()
 
-    # Bot va API ni parallel ishlatish
-    bot_task = asyncio.create_task(run_bot())
-
-    loop = asyncio.get_event_loop()
     from api.app import app
     port = int(os.getenv("PORT", 8000))
     config = uvicorn.Config(app, host="0.0.0.0", port=port, log_level="info")
     server = uvicorn.Server(config)
-    api_task = asyncio.create_task(server.serve())
 
-    await asyncio.gather(bot_task, api_task)
+    await asyncio.gather(
+        run_bot(),
+        server.serve(),
+        keep_alive(),
+    )
 
 
 if __name__ == "__main__":
