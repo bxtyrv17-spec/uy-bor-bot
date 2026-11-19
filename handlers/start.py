@@ -93,6 +93,7 @@ async def receive_phone(message: Message, state: FSMContext, session: AsyncSessi
         user.username = message.from_user.username
         user.full_name = message.from_user.full_name
 
+    await session.commit()
     await state.clear()
     await message.answer(
         f"✅ <b>Ro'yxatdan o'tdingiz!</b>\n\n"
