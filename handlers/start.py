@@ -54,10 +54,14 @@ async def cmd_start(message: Message, state: FSMContext, session: AsyncSession):
         return
 
     if not user:
+        lang = message.from_user.language_code or "uz"
+        if lang not in ("ru", "en", "uz"):
+            lang = "uz"
         user = User(
             id=message.from_user.id,
             username=message.from_user.username,
             full_name=message.from_user.full_name,
+            language=lang,
         )
         session.add(user)
         await session.flush()
@@ -92,6 +96,8 @@ async def receive_phone(message: Message, state: FSMContext, session: AsyncSessi
         user.phone = phone
         user.username = message.from_user.username
         user.full_name = message.from_user.full_name
+        lang = message.from_user.language_code or "uz"
+        user.language = lang if lang in ("ru", "en", "uz") else "uz"
 
     await session.commit()
     await state.clear()

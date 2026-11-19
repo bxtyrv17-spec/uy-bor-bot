@@ -168,7 +168,10 @@ async def enter_description(message: Message, state: FSMContext):
     desc = None if message.text == "/skip" else message.text
     await state.update_data(description=desc)
     await state.set_state(AddListing.photos)
-    await message.answer(uz["add_photos"])
+    await message.answer(
+        "📸 Uyning rasmlarini yuboring (kamida 1 ta, maksimal 10 ta).\n\n"
+        "Rasmlar yuborib bo'lgach /done yozing."
+    )
 
 
 @router.message(AddListing.photos, F.photo)
@@ -186,6 +189,10 @@ async def add_photo(message: Message, state: FSMContext, session: AsyncSession, 
 
 @router.message(AddListing.photos, F.text == "/done")
 async def photos_done(message: Message, state: FSMContext, session: AsyncSession, bot: Bot):
+    data = await state.get_data()
+    if not data.get("photos"):
+        await message.answer("⚠️ Kamida 1 ta rasm qo'shing! E'lon rasmsiz qabul qilinmaydi.")
+        return
     await _save_listing(message, state, session, bot)
 
 
