@@ -363,11 +363,11 @@ html, body { height: 100%; background: var(--bg); font-family: -apple-system, 'S
     <div class="sheet-label">Tuman</div>
     <div style="padding:0 16px 4px"><div class="fsec" style="margin:0"><div class="frow"><input id="fl-district" placeholder="Tuman kiriting..." type="text" style="padding:12px 0"></div></div></div>
     <div class="sheet-label">Ko'chmas mulk turi</div>
-    <div class="type-grid">
-      <button class="type-btn active" onclick="this.classList.toggle('active')"><div class="type-btn-icon">🏢</div><div class="type-btn-label">Kvartira</div></button>
-      <button class="type-btn" onclick="this.classList.toggle('active')"><div class="type-btn-icon">🏡</div><div class="type-btn-label">Uy</div></button>
-      <button class="type-btn" onclick="this.classList.toggle('active')"><div class="type-btn-icon">🛏</div><div class="type-btn-label">Xona</div></button>
-      <button class="type-btn" onclick="this.classList.toggle('active')"><div class="type-btn-icon">🏪</div><div class="type-btn-label">Tijorat</div></button>
+    <div class="type-grid" id="fl-type-grid">
+      <button class="type-btn" onclick="flPick('fl-type-grid',this,'apartment')"><div class="type-btn-icon">🏢</div><div class="type-btn-label">Kvartira</div></button>
+      <button class="type-btn" onclick="flPick('fl-type-grid',this,'house')"><div class="type-btn-icon">🏡</div><div class="type-btn-label">Uy</div></button>
+      <button class="type-btn" onclick="flPick('fl-type-grid',this,'room')"><div class="type-btn-icon">🛏</div><div class="type-btn-label">Xona</div></button>
+      <button class="type-btn" onclick="flPick('fl-type-grid',this,'commercial')"><div class="type-btn-icon">🏪</div><div class="type-btn-label">Tijorat</div></button>
     </div>
     <div class="sheet-label">Narx diapazoni</div>
     <div class="cur-row">
@@ -380,12 +380,12 @@ html, body { height: 100%; background: var(--bg); font-family: -apple-system, 'S
       <input class="price-input" id="fl-max" placeholder="Gacha" type="number">
     </div>
     <div class="sheet-label">Xonalar soni</div>
-    <div class="rooms-row">
-      <button class="room-btn" onclick="this.classList.toggle('active')">1</button>
-      <button class="room-btn" onclick="this.classList.toggle('active')">2</button>
-      <button class="room-btn" onclick="this.classList.toggle('active')">3</button>
-      <button class="room-btn" onclick="this.classList.toggle('active')">4</button>
-      <button class="room-btn" onclick="this.classList.toggle('active')">5+</button>
+    <div class="rooms-row" id="fl-rooms-row">
+      <button class="room-btn" onclick="flPick('fl-rooms-row',this,'1')">1</button>
+      <button class="room-btn" onclick="flPick('fl-rooms-row',this,'2')">2</button>
+      <button class="room-btn" onclick="flPick('fl-rooms-row',this,'3')">3</button>
+      <button class="room-btn" onclick="flPick('fl-rooms-row',this,'4')">4</button>
+      <button class="room-btn" onclick="flPick('fl-rooms-row',this,'5+')">5+</button>
     </div>
     <div class="sheet-label">Mebel</div>
     <div class="furniture-row">
@@ -421,7 +421,7 @@ let allListings = [];
 let favorites = [];
 try { favorites = JSON.parse(localStorage.getItem('favs') || '[]'); } catch {}
 let activeType = 'rent';
-let filterData = { rooms: [], minPrice: null, maxPrice: null, district: '' };
+let filterData = { propType: null, rooms: null, furniture: null, minPrice: null, maxPrice: null, district: '' };
 let formData = { type: 'sale', prop: 'apartment', cur: 'USD' };
 
 setTimeout(() => document.getElementById('splash').classList.add('hide'), 1500);
@@ -449,6 +449,14 @@ function segPick(key, el, val) {
   el.classList.add('active');
 }
 
+function flPick(groupId, el, val) {
+  const group = document.getElementById(groupId);
+  if (!group) return;
+  group.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  el.dataset.val = val;
+}
+
 async function loadListings() {
   if (allListings.length) { renderCards(); return; }
   try {
@@ -467,8 +475,9 @@ function renderCards() {
   let list = allListings.filter(l => {
     if (l.listing_type !== activeType) return false;
     if (q && !JSON.stringify(l).toLowerCase().includes(q)) return false;
+    if (filterData.propType && l.property_type !== filterData.propType) return false;
     if (filterData.district && !JSON.stringify(l).toLowerCase().includes(filterData.district.toLowerCase())) return false;
-    if (filterData.rooms.length && !filterData.rooms.some(r => r === '5+' ? l.rooms >= 5 : l.rooms == r)) return false;
+    if (filterData.rooms) { const r = filterData.rooms; if (r === '5+' ? l.rooms < 5 : l.rooms != r) return false; }
     if (filterData.minPrice && l.price < filterData.minPrice) return false;
     if (filterData.maxPrice && l.price > filterData.maxPrice) return false;
     return true;
@@ -576,18 +585,22 @@ function closeFilter(e) {
   document.getElementById('filterSheet').classList.remove('open');
 }
 function resetFilter() {
-  document.querySelectorAll('.room-btn,.furn-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.type-btn').forEach((b,i) => b.classList.toggle('active', i===0));
+  document.querySelectorAll('#fl-type-grid button, #fl-rooms-row button, .furn-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('fl-district').value = '';
   document.getElementById('fl-min').value = '';
   document.getElementById('fl-max').value = '';
-  filterData = { rooms: [], minPrice: null, maxPrice: null, district: '' };
+  filterData = { propType: null, rooms: null, furniture: null, minPrice: null, maxPrice: null, district: '' };
 }
 function applyFilter() {
+  const typeBtn = document.querySelector('#fl-type-grid button.active');
+  const roomBtn = document.querySelector('#fl-rooms-row button.active');
+  const furnBtn = document.querySelector('.furn-btn.active');
+  filterData.propType = typeBtn ? typeBtn.dataset.val : null;
+  filterData.rooms = roomBtn ? roomBtn.dataset.val : null;
+  filterData.furniture = furnBtn ? furnBtn.textContent : null;
   filterData.district = document.getElementById('fl-district').value;
   filterData.minPrice = parseFloat(document.getElementById('fl-min').value) || null;
   filterData.maxPrice = parseFloat(document.getElementById('fl-max').value) || null;
-  filterData.rooms = Array.from(document.querySelectorAll('.room-btn.active')).map(b => b.textContent);
   document.getElementById('filterSheet').classList.remove('open');
   renderCards();
 }
