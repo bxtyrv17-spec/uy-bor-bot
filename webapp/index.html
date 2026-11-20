@@ -2,7 +2,7 @@
 <html lang="uz">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Uy Bor</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
@@ -26,7 +26,8 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-html, body { height: 100%; background: var(--bg); font-family: -apple-system, 'SF Pro Display', BlinkMacSystemFont, sans-serif; color: var(--text); overflow: hidden; }
+html, body { height: 100%; background: var(--bg); font-family: -apple-system, 'SF Pro Display', BlinkMacSystemFont, sans-serif; color: var(--text); overflow: hidden; touch-action: pan-x pan-y; }
+input, select, textarea { font-size: 16px !important; }
 
 .page { display: none; height: calc(100vh - 56px - var(--safe-bottom)); overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .page.active { display: block; }
@@ -413,6 +414,13 @@ html, body { height: 100%; background: var(--bg); font-family: -apple-system, 'S
 <script>
 const tg = window.Telegram?.WebApp;
 if (tg) { tg.expand(); tg.ready(); tg.setHeaderColor('#1a7a45'); tg.setBackgroundColor('#0f0f0f'); }
+
+// Pinch zoom & scroll jump prevention
+document.addEventListener('touchmove', function(e) {
+  if (e.touches.length > 1) e.preventDefault();
+}, { passive: false });
+document.addEventListener('gesturestart', function(e) { e.preventDefault(); }, { passive: false });
+document.addEventListener('gesturechange', function(e) { e.preventDefault(); }, { passive: false });
 
 const API = 'https://uy-bor-bot.onrender.com';
 const userId = tg?.initDataUnsafe?.user?.id || 0;
